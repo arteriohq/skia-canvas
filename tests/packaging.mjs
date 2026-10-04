@@ -13,6 +13,7 @@ const sh = (cmd, opts={}) => execSync(cmd, {stdio:'pipe', encoding:'utf8', ...op
 
 const releaseDirectory = process.argv[2] && resolve(process.argv[2])
 const published = process.argv.includes('--published')
+const usePnpm = process.argv.includes('--pnpm')
 if (!releaseDirectory && !existsSync(`${ROOT}/lib/skia.node`)){
   console.error(`No lib/skia.node found — build or download one first`)
   process.exit(1)
@@ -29,8 +30,8 @@ try{
     const filename = `skia-canvas-${version}.tgz`
     const root = JSON.parse(sh(`tar -xOf "${join(releaseDirectory, filename)}" package/package.json`))
     const base = `https://github.com/arteriohq/skia-canvas/releases/download/v${version}`
-    assert.equal(root.optionalDependencies[platformPkg], `${base}/skia-canvas-${triplet}-${version}.tgz`)
-    tarballs = published ? [`${base}/${filename}`] : [join(releaseDirectory, filename), join(releaseDirectory, `skia-canvas-${triplet}-${version}.tgz`)]
+    assert.equal(root.optionalDependencies, undefined, 'Root archive still has URL subdependencies')
+    tarballs = [published ? `${base}/${filename}` : join(releaseDirectory, filename)]
   }else{
     // reuse the normal platform package builder for the original packaging check
     sh(`node "${ROOT}/lib/prebuild.mjs" packages --local`)
@@ -47,7 +48,7 @@ try{
   mkdirSync(app)
   writeFileSync(join(app, 'package.json'), JSON.stringify({name:'packaging-probe', private:true}))
   console.log(`Installing with --ignore-scripts into ${app}`)
-  sh(`npm install --ignore-scripts --no-audit --no-fund ${releaseDirectory && !published ? '--omit=optional' : ''} ${tarballs.map(t => `"${t}"`).join(' ')}`, {cwd:app})
+  sh(`${usePnpm ? `pnpm add --ignore-scripts --store-dir "${join(work, 'store')}"` : 'npm install --ignore-scripts --no-audit --no-fund'} ${tarballs.map(t => `"${t}"`).join(' ')}`, {cwd:app})
 
   if (existsSync(join(app, 'node_modules/skia-canvas/lib/skia.node'))){
     throw Error(`lib/skia.node was included in the packed module — the loader's platform-package path went untested`)
@@ -93,10 +94,11 @@ try{
   `)
   let rendered = sh(`node probe.mjs`, {cwd:app})
   if (!rendered.includes('render ok')) throw Error(`probe render failed:\n${rendered}`)
-  console.log(`✓ rendering works via ${platformPkg}`)
+  console.log(`✓ ${usePnpm ? 'pnpm' : 'npm'} rendering works via ${releaseDirectory ? 'bundled binary' : platformPkg}`)
 
   // with the platform package gone, the loader should fail loudly & specifically
-  rmSync(join(app, 'node_modules/@skia-canvas'), {recursive:true})
+  if (releaseDirectory) rmSync(join(app, 'node_modules/skia-canvas/lib/native'), {recursive:true})
+  else rmSync(join(app, 'node_modules/@skia-canvas'), {recursive:true})
   let failure
   try{
     sh(`node probe.mjs`, {cwd:app})

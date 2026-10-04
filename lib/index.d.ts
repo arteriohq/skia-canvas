@@ -333,7 +333,7 @@ export interface RenderOptions {
 }
 
 export interface ExportOptions extends RenderOptions {
-  /** Quality for lossy encodings like JPEG & WEBP / gzip effort for PNG (0.0–1.0) */
+  /** Quality for JPEG & WEBP / gzip effort for PNG (0.0–1.0); PDF 1.01 keeps images lossless. */
   quality?: number
 
   /** Convert text to bézier paths (SVG only) */

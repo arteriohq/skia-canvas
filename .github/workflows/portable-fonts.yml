@@ -105,7 +105,7 @@ jobs:
           pattern: native-*
           path: packages
           merge-multiple: true
-      - name: Assemble root package with fork release URLs
+      - name: Assemble root package with both native binaries
         run: |
           node lib/arterio-release.mjs packages
           cd packages && sha256sum *.tgz > SHA256SUMS
@@ -134,7 +134,9 @@ jobs:
         with:
           name: release-packages
           path: packages
+      - run: npm install --global pnpm@11.20.0
       - run: node tests/packaging.mjs packages
+      - run: node tests/packaging.mjs packages --pnpm
 
   release:
     name: Publish Arterio prerelease
@@ -185,4 +187,6 @@ jobs:
         with:
           name: release-packages
           path: packages
+      - run: npm install --global pnpm@11.20.0
       - run: node tests/packaging.mjs packages --published
+      - run: node tests/packaging.mjs packages --published --pnpm

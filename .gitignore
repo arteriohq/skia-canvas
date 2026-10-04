@@ -4,6 +4,7 @@
 /_*
 /assets
 lib/*.node
+lib/native/*.node
 node_modules
 target
 vendor/simplecss/Cargo.lock
