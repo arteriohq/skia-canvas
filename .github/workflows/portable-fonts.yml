@@ -1,6 +1,16 @@
-name: Portable fonts
+name: Portable fonts and packages
 on:
   workflow_dispatch:
+    inputs:
+      publish:
+        description: Publish verified archives as an Arterio GitHub prerelease
+        type: boolean
+        default: false
+  workflow_call:
+    inputs:
+      publish:
+        type: boolean
+        default: false
   push:
   pull_request:
     branches: [main]
@@ -12,6 +22,7 @@ jobs:
   capture:
     name: Capture (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix:
@@ -32,6 +43,14 @@ jobs:
         if: runner.os == 'macOS'
         run: brew install ninja
       - run: npm ci --ignore-scripts
+      - uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: portable-cpu-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Cargo.lock', 'Cargo.toml') }}
+          restore-keys: portable-cpu-${{ runner.os }}-${{ runner.arch }}-
       - name: Build CPU-only portable fonts
         run: npm run build -- custom portable-fonts --release
       - name: Capture and check locales and drawing changes
@@ -46,6 +65,20 @@ jobs:
           node tests/portable-fonts/compare.mjs artifacts/baseline artifacts/line --expect-pixel-difference
       - name: Verify npm packaging
         run: node tests/packaging.mjs
+      - name: Pack the native optional dependency
+        shell: bash
+        run: |
+          node lib/prebuild.mjs packages --local
+          mkdir -p packages
+          for package_dir in assets/npm/*; do
+            npm pack "$package_dir" --pack-destination packages
+          done
+      - uses: actions/upload-artifact@v7
+        with:
+          name: native-${{ runner.os }}
+          path: packages/*.tgz
+          if-no-files-found: error
+          retention-days: 30
       - uses: actions/upload-artifact@v7
         if: always()
         with:
@@ -67,3 +100,89 @@ jobs:
           pattern: portable-*
           path: artifacts
       - run: node tests/portable-fonts/compare.mjs artifacts/portable-macOS/baseline artifacts/portable-Linux/baseline
+      - uses: actions/download-artifact@v7
+        with:
+          pattern: native-*
+          path: packages
+          merge-multiple: true
+      - name: Assemble root package with fork release URLs
+        run: |
+          node lib/arterio-release.mjs packages
+          cd packages && sha256sum *.tgz > SHA256SUMS
+      - uses: actions/upload-artifact@v7
+        with:
+          name: release-packages
+          path: packages
+          if-no-files-found: error
+          retention-days: 30
+
+  install:
+    name: Install archives (${{ matrix.os }})
+    needs: compare
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-15, ubuntu-24.04]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - run: npm ci --ignore-scripts
+      - uses: actions/download-artifact@v7
+        with:
+          name: release-packages
+          path: packages
+      - run: node tests/packaging.mjs packages
+
+  release:
+    name: Publish Arterio prerelease
+    needs: install
+    if: inputs.publish && github.ref == 'refs/heads/main' && github.repository == 'arteriohq/skia-canvas'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - uses: actions/download-artifact@v7
+        with:
+          name: release-packages
+          path: packages
+      - name: Publish versioned archives without overwriting an existing release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag=$(node -p "require('./packages/release.json').tag")
+          version=$(node -p "require('./packages/release.json').version")
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo "Release $tag already exists; increment the fork version for a new build."
+            exit 1
+          fi
+          gh release create "$tag" packages/*.tgz packages/SHA256SUMS packages/release.json \
+            --target "$GITHUB_SHA" --prerelease --title "Skia Canvas $version (Arterio)" \
+            --notes-file docs/arterio-release-notes.md
+          node -p "'Package URL: ' + require('./packages/release.json').root.url" >> "$GITHUB_STEP_SUMMARY"
+
+  installed-release:
+    name: Install published release (${{ matrix.os }})
+    needs: release
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-15, ubuntu-24.04]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - run: npm ci --ignore-scripts
+      - uses: actions/download-artifact@v7
+        with:
+          name: release-packages
+          path: packages
+      - run: node tests/packaging.mjs packages --published

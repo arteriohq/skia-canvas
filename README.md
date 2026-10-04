@@ -1,3 +1,39 @@
+# Arterio Skia Canvas fork
+
+This fork keeps the upstream build and package scripts. It adds the portable
+FreeType font mode and Arterio's lossless PDF option. The supported release
+packages are macOS ARM64 and Linux x64 with glibc.
+
+Every push checks native rendering and assembles installable package archives.
+To publish them, open **Actions → Compile binaries → Run workflow**, select
+`main`, and enable **publish**. The workflow creates a GitHub prerelease only
+after the rendering comparison and package installation checks pass. It does
+not publish to the upstream npm package names.
+
+For a new release, increment the `-arterio.N` version in `package.json`,
+`package-lock.json`, `Cargo.toml`, and `Cargo.lock`. Existing release assets are
+not replaced. Download the `release-packages` artifact for a build without
+publication. Each release contains `release.json` with the source commit and
+root package URL, plus `SHA256SUMS`.
+
+Arterio can use a root override in `pnpm-workspace.yaml`:
+
+```yaml
+overrides:
+  skia-canvas: https://github.com/arteriohq/skia-canvas/releases/download/v4.0.0-rc9-arterio.1/skia-canvas-4.0.0-rc9-arterio.1.tgz
+```
+
+Then run `pnpm install` and commit the lockfile. Explicit font registration and
+matching CPU rendering settings are still required. The existing Arterio
+`skia-canvas@3.0.6` PDF patch must be removed when the application adopts this
+fork; the fork already includes that behavior. Run the application checks
+before adoption.
+
+See [the native test plan](docs/testing/portable-fonts.md). The portable change
+is proposed upstream in [PR #304](https://github.com/samizdatco/skia-canvas/pull/304).
+
+---
+
 <a href="https://skia-canvas.org">
 
 <picture>

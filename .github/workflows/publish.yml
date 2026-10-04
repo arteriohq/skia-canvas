@@ -6,6 +6,7 @@ on:
 
 jobs:
   publish:
+    if: github.repository == 'samizdatco/skia-canvas'
     name: Publish to NPM
     runs-on: ubuntu-latest
     permissions:

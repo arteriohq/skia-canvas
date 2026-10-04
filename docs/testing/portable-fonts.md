@@ -36,8 +36,8 @@ settings on both systems. For the tested CPU configuration, use `gpu: false`,
 `textContrast: 0`, `textGamma: 1.4`, and an sRGB context. Set `fontHinting` to false,
 `fontSmoothing` to true, and `fontSynthesis` to false.
 
-The supplied binaries retain the default behavior. This feature is currently a
-source build option. These tests establish parity for the supplied samples, not
+Upstream's supplied binaries retain the default behavior. The Arterio release
+binaries enable this feature. These tests establish parity for the supplied samples, not
 for every font, architecture, or drawing operation.
 
 ## Native regression test plan
@@ -68,3 +68,25 @@ To reproduce a capture and compare it with a capture from another machine:
 node tests/portable-fonts/capture.mjs /tmp/portable-capture
 node tests/portable-fonts/compare.mjs /tmp/portable-capture /tmp/other-capture
 ```
+
+## Arterio package delivery checks
+
+The Arterio workflow extends this existing native workflow and package builder.
+It protects the delivery contract before a release is published:
+
+- Both native tarballs must contain the same fork version and the expected OS,
+  CPU architecture, and libc declarations.
+- The root tarball must refer to those tarballs at this fork's release URLs.
+  A clean installation must load the native optional dependency; the root
+  tarball must not contain an accidentally copied local `lib/skia.node`.
+- The installed package must still expose no system fonts in portable mode.
+  It must render a PNG and load an explicitly supplied font.
+- The lossless PDF option must retain opaque bitmap pixels after PDF export and
+  import. The normal PDF encoding must differ, so the check cannot pass on a
+  blank image or an image that never used JPEG encoding.
+- The same clean installation is repeated from the published release URLs to
+  check actual dependency delivery, rather than only local tarball installation.
+
+Application E2E tests cannot check these package and release boundaries until
+Arterio has installed this dependency. These checks use the actual npm archives,
+real native binaries, and real rendering. No production test hooks are added.
