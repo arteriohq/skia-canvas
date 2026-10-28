@@ -2,7 +2,8 @@
 
 This fork keeps the upstream build and package scripts. It adds the portable
 FreeType font mode and Arterio's lossless PDF option. The root release archive
-contains native binaries for macOS ARM64 and Linux x64 with glibc. The loader
+contains native binaries for macOS ARM64 and Linux x64 with glibc. The Linux
+binary is built on Debian 12 and needs glibc 2.36 or later. The loader
 selects the correct binary. This works with pnpm 11 without URL subdependencies.
 
 Every push checks native rendering and assembles installable package archives.
@@ -21,7 +22,7 @@ Arterio can use a root override in `pnpm-workspace.yaml`:
 
 ```yaml
 overrides:
-  skia-canvas: https://github.com/arteriohq/skia-canvas/releases/download/v4.0.0-rc9-arterio.2/skia-canvas-4.0.0-rc9-arterio.2.tgz
+  skia-canvas: https://github.com/arteriohq/skia-canvas/releases/download/v4.0.0-rc9-arterio.3/skia-canvas-4.0.0-rc9-arterio.3.tgz
 ```
 
 Then run `pnpm install` and commit the lockfile. Explicit font registration and

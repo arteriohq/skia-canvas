@@ -22,23 +22,45 @@ jobs:
   capture:
     name: Capture (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
+    # Build Linux on Debian 12 so the binary needs only glibc 2.36 and runs on Arterio's
+    # production image, CI image, and Amp orbs.
+    container: ${{ matrix.container }}
     timeout-minutes: 90
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-15, ubuntu-24.04]
+        include:
+          - os: macos-15
+          - os: ubuntu-24.04
+            container: debian:bookworm
     steps:
+      - name: Install Debian tools
+        if: runner.os == 'Linux'
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends ca-certificates curl git gnupg xz-utils zstd
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: npm
       - uses: dtolnay/rust-toolchain@stable
+      # Debian 12's clang 14 cannot compile Skia's C++20 ranges code. LLVM's clang 19 still
+      # links against Debian 12's libstdc++, so the binary keeps its glibc 2.36 baseline.
       - name: Install Linux build tools
         if: runner.os == 'Linux'
         run: |
-          sudo apt-get update
-          sudo apt-get install -y clang libclang-dev ninja-build libfontconfig1-dev
+          curl -fsSL https://apt.llvm.org/llvm-snapshot.gpg.key | gpg --dearmor -o /usr/share/keyrings/llvm.gpg
+          echo "deb [signed-by=/usr/share/keyrings/llvm.gpg] https://apt.llvm.org/bookworm/ llvm-toolchain-bookworm-19 main" \
+            > /etc/apt/sources.list.d/llvm.list
+          apt-get update
+          apt-get install -y --no-install-recommends build-essential clang-19 libclang-19-dev \
+            libfontconfig1-dev locales ninja-build pkg-config python3
+          ln -sf /usr/bin/clang-19 /usr/local/bin/clang
+          ln -sf /usr/bin/clang++-19 /usr/local/bin/clang++
+          echo "LIBCLANG_PATH=/usr/lib/llvm-19/lib" >> "$GITHUB_ENV"
+          sed -i 's/^# *\(en_US.UTF-8\|ko_KR.UTF-8\)/\1/' /etc/locale.gen
+          locale-gen
       - name: Install macOS build tools
         if: runner.os == 'macOS'
         run: brew install ninja
@@ -49,8 +71,8 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             target
-          key: portable-cpu-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Cargo.lock', 'Cargo.toml') }}
-          restore-keys: portable-cpu-${{ runner.os }}-${{ runner.arch }}-
+          key: portable-cpu-v2-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Cargo.lock', 'Cargo.toml') }}
+          restore-keys: portable-cpu-v2-${{ runner.os }}-${{ runner.arch }}-
       - name: Build CPU-only portable fonts
         run: npm run build -- custom portable-fonts --release
       - name: Capture and check locales and drawing changes
@@ -120,11 +142,20 @@ jobs:
     name: Install archives (${{ matrix.os }})
     needs: compare
     runs-on: ${{ matrix.os }}
+    container: ${{ matrix.container }}
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-15, ubuntu-24.04]
+        include:
+          - os: macos-15
+          - os: ubuntu-24.04
+            container: debian:bookworm
     steps:
+      - name: Install Debian tools
+        if: runner.os == 'Linux'
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends ca-certificates git xz-utils zstd
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
@@ -173,11 +204,20 @@ jobs:
     name: Install published release (${{ matrix.os }})
     needs: release
     runs-on: ${{ matrix.os }}
+    container: ${{ matrix.container }}
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-15, ubuntu-24.04]
+        include:
+          - os: macos-15
+          - os: ubuntu-24.04
+            container: debian:bookworm
     steps:
+      - name: Install Debian tools
+        if: runner.os == 'Linux'
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends ca-certificates git xz-utils zstd
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
         with:
