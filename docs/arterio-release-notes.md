@@ -4,7 +4,8 @@ lossless PDF image option (`quality: 1.01`). It uses CPU rendering.
 The root npm archive contains native macOS ARM64, Linux x64 glibc, and Linux
 ARM64 glibc binaries. The Linux binaries are built on Debian 12 with clang 19
 and need glibc 2.36 or later, so they run on Debian 12, Debian 13, and Ubuntu
-24.04. The loader selects the correct binary. This avoids URL subdependencies
+24.04. Linux also needs the Fontconfig runtime (`apt-get install libfontconfig1`).
+The loader selects the correct binary. This avoids URL subdependencies
 blocked by pnpm 11. The release also includes standalone native archives,
 SHA-256 checksums, and a manifest with the source commit.
 
