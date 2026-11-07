@@ -33,6 +33,8 @@ jobs:
           - os: macos-15
           - os: ubuntu-24.04
             container: debian:bookworm
+          - os: ubuntu-24.04-arm
+            container: debian:bookworm
     steps:
       - name: Install Debian tools
         if: runner.os == 'Linux'
@@ -97,19 +99,19 @@ jobs:
           done
       - uses: actions/upload-artifact@v7
         with:
-          name: native-${{ runner.os }}
+          name: native-${{ runner.os }}-${{ runner.arch }}
           path: packages/*.tgz
           if-no-files-found: error
           retention-days: 30
       - uses: actions/upload-artifact@v7
         if: always()
         with:
-          name: portable-${{ runner.os }}
+          name: portable-${{ runner.os }}-${{ runner.arch }}
           path: artifacts
           retention-days: 14
 
   compare:
-    name: Compare macOS and Linux
+    name: Compare macOS and both Linux architectures
     needs: capture
     runs-on: ubuntu-24.04
     steps:
@@ -121,13 +123,14 @@ jobs:
         with:
           pattern: portable-*
           path: artifacts
-      - run: node tests/portable-fonts/compare.mjs artifacts/portable-macOS/baseline artifacts/portable-Linux/baseline
+      - run: node tests/portable-fonts/compare.mjs artifacts/portable-macOS-ARM64/baseline artifacts/portable-Linux-X64/baseline
+      - run: node tests/portable-fonts/compare.mjs artifacts/portable-macOS-ARM64/baseline artifacts/portable-Linux-ARM64/baseline
       - uses: actions/download-artifact@v7
         with:
           pattern: native-*
           path: packages
           merge-multiple: true
-      - name: Assemble root package with both native binaries
+      - name: Assemble root package with all three native binaries
         run: |
           node lib/arterio-release.mjs packages
           cd packages && sha256sum *.tgz > SHA256SUMS
@@ -149,6 +152,8 @@ jobs:
         include:
           - os: macos-15
           - os: ubuntu-24.04
+            container: debian:bookworm
+          - os: ubuntu-24.04-arm
             container: debian:bookworm
     steps:
       - name: Install Debian tools
@@ -211,6 +216,8 @@ jobs:
         include:
           - os: macos-15
           - os: ubuntu-24.04
+            container: debian:bookworm
+          - os: ubuntu-24.04-arm
             container: debian:bookworm
     steps:
       - name: Install Debian tools

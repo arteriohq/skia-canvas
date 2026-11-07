@@ -74,10 +74,10 @@ node tests/portable-fonts/compare.mjs /tmp/portable-capture /tmp/other-capture
 The Arterio workflow extends this existing native workflow and package builder.
 It protects the delivery contract before a release is published:
 
-- Both native tarballs must contain the same fork version and the expected OS,
+- All three native tarballs must contain the same fork version and the expected OS,
   CPU architecture, and libc declarations.
-- The root tarball must contain both native binaries. A clean installation
-  must load the binary for the current platform; the root tarball must not
+- The root tarball must contain macOS ARM64, Linux x64, and Linux ARM64 binaries.
+  A clean installation must load the binary for the current platform; the root tarball must not
   contain an accidentally copied local `lib/skia.node`.
 - The installed package must still expose no system fonts in portable mode.
   It must render a PNG and load an explicitly supplied font.
@@ -94,7 +94,7 @@ real native binaries, and real rendering. No production test hooks are added.
 The pnpm 11 check found a delivery failure that npm does not catch:
 `blockExoticSubdeps` rejects native optional dependencies specified as release
 URLs, including with explicit overrides. The Arterio root archive therefore
-contains both native binaries under `lib/native`. Its loader selects by OS,
+contains all three native binaries under `lib/native`. Its loader selects by OS,
 architecture, and libc. This avoids URL subdependencies without disabling pnpm's
 protection. Native standalone archives remain available as release assets.
 
